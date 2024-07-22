@@ -38,20 +38,37 @@ class UserProfileSerializer(serializers.ModelSerializer):
     fields = ['id', 'email', 'name']
 
 class UserChangePasswordSerializer(serializers.Serializer):
-  password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
-  password2 = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
-  class Meta:
-    fields = ['password', 'password2']
+    current_password = serializers.CharField(max_length=255, style={'input_type': 'password'}, write_only=True)
+    new_password = serializers.CharField(max_length=255, style={'input_type': 'password'}, write_only=True)
+    repeat_password = serializers.CharField(max_length=255, style={'input_type': 'password'}, write_only=True)
 
-  def validate(self, attrs):
-    password = attrs.get('password')
-    password2 = attrs.get('password2')
-    user = self.context.get('user')
-    if password != password2:
-      raise serializers.ValidationError("Password and Confirm Password doesn't match")
-    user.set_password(password)
-    user.save()
-    return attrs
+    def validate(self, attrs):
+        current_password = attrs.get('current_password')
+        new_password = attrs.get('new_password')
+        repeat_password = attrs.get("repeat_password")
+        
+        # Ensure user is in context
+        user = self.context.get('user')
+        if not user:
+            raise serializers.ValidationError("User context is required.")
+
+        # Check if the user knows the current password
+        if not user.check_password(current_password):
+            raise serializers.ValidationError("Current password is incorrect.")
+        
+        # Check if both password fields are provided
+        if not new_password or not repeat_password:
+            raise serializers.ValidationError("Both password fields are required.")
+
+        # Check if passwords match
+        if new_password != repeat_password:
+            raise serializers.ValidationError("Password and Confirm Password don't match.")
+        
+        # Save the new password
+        user.set_password(new_password)
+        user.save()
+        
+        return attrs
 
 class SendPasswordResetEmailSerializer(serializers.Serializer):
   email = serializers.EmailField(max_length=255)
